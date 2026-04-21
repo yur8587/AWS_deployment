@@ -121,7 +121,7 @@ jobs:
             pip install awscli
             eval $(aws ecr get-login --no-include-email --region ap-northeast-2)
             make build-ml-api-aws tag-ml-api push-ml-api-aws
-            aws ecs update-service --cluster vve-ml-api-cluster --service vve-ml-api-service --task-definition vve-ml-api-task --force-new-deployment
+            aws ecs update-service --cluster vve-ml-api-cluster --service vve-ml-api-task-service --task-definition vve-ml-api-task --force-new-deployment
 
 
 workflows:
