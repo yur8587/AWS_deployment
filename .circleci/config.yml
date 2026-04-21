@@ -1,143 +1,31 @@
-version: 2
+# Use the latest 2.1 version of CircleCI pipeline process engine.
+# See: https://circleci.com/docs/reference/configuration-reference
+version: 2.1
 
-defaults: &defaults
-  docker:
-    - image: cimg/python:3.11.1
-  working_directory: ~/project
-
-prepare_venv: &prepare_venv
-  run:
-    name: Create venv
-    command: |
-      python -m venv venv
-      source venv/bin/activate
-      pip install --upgrade pip
-
-fetch_data: &fetch_data
-  run:
-    name: Set script permissions and fetch data
-    command: |
-      source venv/bin/activate
-      chmod +x ./scripts/fetch_kaggle_dataset.sh
-      ./scripts/fetch_kaggle_dataset.sh
-
+# Define a job to be invoked later in a workflow.
+# See: https://circleci.com/docs/guides/orchestrate/jobs-steps/#jobs-overview & https://circleci.com/docs/reference/configuration-reference/#jobs
 jobs:
+  say-hello:
+    # Specify the execution environment. You can specify an image from Docker Hub or use one of our convenience images from CircleCI's Developer Hub.
+    # See: https://circleci.com/docs/guides/execution-managed/executor-intro/ & https://circleci.com/docs/reference/configuration-reference/#executor-job
+    docker:
+      # Specify the version you desire here
+      # See: https://circleci.com/developer/images/image/cimg/base
+      - image: cimg/base:current
 
-  test_regression_model:
-    <<: *defaults
+    # Add steps to the job
+    # See: https://circleci.com/docs/guides/orchestrate/jobs-steps/#steps-overview & https://circleci.com/docs/reference/configuration-reference/#steps
     steps:
+      # Checkout the code as the first step.
       - checkout
-      - *prepare_venv
       - run:
-          name: Install requirements
-          command: |
-            . venv/bin/activate
-            pip install -r packages/regression_model/requirements.txt
-      - *fetch_data
-      - run:
-          name: Train model
-          command: |
-            . venv/bin/activate
-            PYTHONPATH=./packages/regression_model python3 packages/regression_model/regression_model/train_pipeline.py
-      - run:
-          name: Run tests
-          command: |
-            . venv/bin/activate
-            py.test -vv packages/regression_model/tests
+          name: "Say hello"
+          command: "echo Hello, World!"
 
-  test_ml_api:
-    <<: *defaults
-    steps:
-      - checkout
-      - restore_cache:
-          keys:
-            - py-deps-{{ checksum "packages/ml_api/requirements.txt" }}
-      - run:
-          name: Runnning tests
-          command: |
-            #virtualenv venv
-            python3 -m venv venv
-            . venv/bin/activate
-            pip install --upgrade pip
-            pip install -r packages/ml_api/requirements.txt
-            py.test -vv packages/ml_api/tests -m "not differential"
-      - save_cache:
-          key: py-deps-{{ checksum "packages/ml_api/requirements.txt" }}
-          paths:
-            - "/venv"
-
-
-  train_and_upload_regression_model:
-    <<: *defaults
-    steps:
-      - checkout
-      - *prepare_venv
-      - run:
-          name: Install requirements
-          command: |
-            . venv/bin/activate
-            pip install -r packages/regression_model/requirements.txt
-      - *fetch_data
-      - run:
-          name: Train model
-          command: |
-            . venv/bin/activate
-            PYTHONPATH=./packages/regression_model python3 packages/regression_model/regression_model/train_pipeline.py
-      - run:
-          name: Publish model to Gemfury
-          command: |
-            . venv/bin/activate
-            chmod +x ./scripts/publish_model.sh
-            ./scripts/publish_model.sh ./packages/regression_model/
-
-  differential_tests:
-    <<: *defaults
-    steps:
-      - checkout
-      - *prepare_venv
-      - run:
-          name: Capturing previous model predictions
-          command: |
-            . venv/bin/activate
-            pip install -r packages/ml_api/diff_test_requirements.txt
-            PYTHONPATH=./packages/ml_api python3 packages/ml_api/tests/capture_model_predictions.py
-      - run:
-          name: Running differential tests
-          command: |
-            . venv/bin/activate
-            pip install -r packages/ml_api/requirements.txt
-            py.test -vv packages/ml_api/tests -m differential
-
-
-  publish_docker_image_to_aws:
-    <<: *defaults
-    working_directory: ~/project/packages/ml_models
-    steps:
-      - checkout
-      - setup_remote_docker
-      - run:
-          name: Publishing docker image to aws ECR
-          command: |
-            pip install awscli
-            eval $(aws ecr get-login --no-include-email --region ap-northeast-2)
-            make build-ml-api-aws tag-ml-api push-ml-api-aws
-            aws ecs update-service --cluster vve-ml-api-cluster --service vve-ml-api-service --task-definition vve-ml-api-task --force-new-deployment
-
-
+# Orchestrate jobs using workflows
+# See: https://circleci.com/docs/guides/orchestrate/workflows/ & https://circleci.com/docs/reference/configuration-reference/#workflows
 workflows:
-  version: 2
-  test-all:
+  say-hello-workflow: # This is the name of the workflow, feel free to change it to better match your workflow.
+    # Inside the workflow, you define the jobs you want to run.
     jobs:
-      - test_regression_model
-      - test_ml_api
-      - train_and_upload_regression_model:
-          requires:
-            - test_regression_model
-            - test_ml_api
-      - publish_docker_image_to_aws:
-          requires:
-            - train_and_upload_regression_model
-          filters:
-            branches:
-              only:
-                - main
+      - say-hello
